@@ -1,0 +1,32 @@
+//@todo recompile this file
+
+syntax = "proto3";
+
+
+service RaftService{
+  rpc RequestVote (RequestMessage) returns (RequestResponse);
+  rpc AppendEntries(RequestMessage) returns (RequestResponse);
+  rpc GetLeader(Empty) returns (CurrentLeader);
+  rpc Suspend(Period) returns (Empty);
+}
+
+message RequestMessage {
+  int32 term = 1;
+  int32  Id = 2;
+}
+
+message RequestResponse {
+  int32 term = 1;
+  bool result = 2;
+}
+
+message Empty{}
+
+message CurrentLeader{
+  int32 id=1;
+  string address = 2;
+}
+
+message Period{
+  int32 seconds=1;
+}
