@@ -13,23 +13,29 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nraft.proto\"*\n\x0eRequestMessage\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\n\n\x02Id\x18\x02 \x01(\x05\"/\n\x0fRequestResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0e\n\x06result\x18\x02 \x01(\x08\"\x07\n\x05\x45mpty\",\n\rCurrentLeader\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0f\n\x07\x61\x64\x64ress\x18\x02 \x01(\t\"\x19\n\x06Period\x12\x0f\n\x07seconds\x18\x01 \x01(\x05\x32\xab\x01\n\x0bRaftService\x12\x30\n\x0bRequestVote\x12\x0f.RequestMessage\x1a\x10.RequestResponse\x12)\n\x0e\x41ppendEnteries\x12\x0f.RequestMessage\x1a\x06.Empty\x12#\n\tGetLeader\x12\x06.Empty\x1a\x0e.CurrentLeader\x12\x1a\n\x07Suspend\x12\x07.Period\x1a\x06.Emptyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nraft.proto\"7\n\x12RequestVoteMessage\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x13\n\x0b\x63\x61ndidateId\x18\x02 \x01(\x05\"3\n\x13RequestVoteResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0e\n\x06result\x18\x02 \x01(\x08\"6\n\x14\x41pepndEntriesMessage\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x10\n\x08leaderId\x18\x02 \x01(\x05\"5\n\x15\x41ppendEntriesResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0e\n\x06result\x18\x02 \x01(\x08\"\x12\n\x10GetLeaderMessage\"<\n\x11GetLeaderResponse\x12\x10\n\x08leaderId\x18\x01 \x01(\x05\x12\x15\n\rleaderAddress\x18\x02 \x01(\t\" \n\x0eSuspendMessage\x12\x0e\n\x06period\x18\x01 \x01(\x05\"\x11\n\x0fSuspendResponse2\xe9\x01\n\x0bRaftService\x12\x38\n\x0bRequestVote\x12\x13.RequestVoteMessage\x1a\x14.RequestVoteResponse\x12>\n\rAppendEntries\x12\x15.ApepndEntriesMessage\x1a\x16.AppendEntriesResponse\x12\x32\n\tGetLeader\x12\x11.GetLeaderMessage\x1a\x12.GetLeaderResponse\x12,\n\x07Suspend\x12\x0f.SuspendMessage\x1a\x10.SuspendResponseb\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'raft_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _REQUESTMESSAGE._serialized_start=14
-  _REQUESTMESSAGE._serialized_end=56
-  _REQUESTRESPONSE._serialized_start=58
-  _REQUESTRESPONSE._serialized_end=105
-  _EMPTY._serialized_start=107
-  _EMPTY._serialized_end=114
-  _CURRENTLEADER._serialized_start=116
-  _CURRENTLEADER._serialized_end=160
-  _PERIOD._serialized_start=162
-  _PERIOD._serialized_end=187
-  _RAFTSERVICE._serialized_start=190
-  _RAFTSERVICE._serialized_end=361
+  _REQUESTVOTEMESSAGE._serialized_start=14
+  _REQUESTVOTEMESSAGE._serialized_end=69
+  _REQUESTVOTERESPONSE._serialized_start=71
+  _REQUESTVOTERESPONSE._serialized_end=122
+  _APEPNDENTRIESMESSAGE._serialized_start=124
+  _APEPNDENTRIESMESSAGE._serialized_end=178
+  _APPENDENTRIESRESPONSE._serialized_start=180
+  _APPENDENTRIESRESPONSE._serialized_end=233
+  _GETLEADERMESSAGE._serialized_start=235
+  _GETLEADERMESSAGE._serialized_end=253
+  _GETLEADERRESPONSE._serialized_start=255
+  _GETLEADERRESPONSE._serialized_end=315
+  _SUSPENDMESSAGE._serialized_start=317
+  _SUSPENDMESSAGE._serialized_end=349
+  _SUSPENDRESPONSE._serialized_start=351
+  _SUSPENDRESPONSE._serialized_end=368
+  _RAFTSERVICE._serialized_start=371
+  _RAFTSERVICE._serialized_end=604
 # @@protoc_insertion_point(module_scope)
