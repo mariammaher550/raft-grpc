@@ -16,23 +16,23 @@ class RaftServiceStub(object):
         """
         self.RequestVote = channel.unary_unary(
                 '/RaftService/RequestVote',
-                request_serializer=raft__pb2.RequestMessage.SerializeToString,
-                response_deserializer=raft__pb2.RequestResponse.FromString,
+                request_serializer=raft__pb2.RequestVoteMessage.SerializeToString,
+                response_deserializer=raft__pb2.RequestVoteResponse.FromString,
                 )
-        self.AppendEnteries = channel.unary_unary(
-                '/RaftService/AppendEnteries',
-                request_serializer=raft__pb2.RequestMessage.SerializeToString,
-                response_deserializer=raft__pb2.Empty.FromString,
+        self.AppendEntries = channel.unary_unary(
+                '/RaftService/AppendEntries',
+                request_serializer=raft__pb2.ApepndEntriesMessage.SerializeToString,
+                response_deserializer=raft__pb2.AppendEntriesResponse.FromString,
                 )
         self.GetLeader = channel.unary_unary(
                 '/RaftService/GetLeader',
-                request_serializer=raft__pb2.Empty.SerializeToString,
-                response_deserializer=raft__pb2.CurrentLeader.FromString,
+                request_serializer=raft__pb2.GetLeaderMessage.SerializeToString,
+                response_deserializer=raft__pb2.GetLeaderResponse.FromString,
                 )
         self.Suspend = channel.unary_unary(
                 '/RaftService/Suspend',
-                request_serializer=raft__pb2.Period.SerializeToString,
-                response_deserializer=raft__pb2.Empty.FromString,
+                request_serializer=raft__pb2.SuspendMessage.SerializeToString,
+                response_deserializer=raft__pb2.SuspendResponse.FromString,
                 )
 
 
@@ -45,7 +45,7 @@ class RaftServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def AppendEnteries(self, request, context):
+    def AppendEntries(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -68,23 +68,23 @@ def add_RaftServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'RequestVote': grpc.unary_unary_rpc_method_handler(
                     servicer.RequestVote,
-                    request_deserializer=raft__pb2.RequestMessage.FromString,
-                    response_serializer=raft__pb2.RequestResponse.SerializeToString,
+                    request_deserializer=raft__pb2.RequestVoteMessage.FromString,
+                    response_serializer=raft__pb2.RequestVoteResponse.SerializeToString,
             ),
-            'AppendEnteries': grpc.unary_unary_rpc_method_handler(
-                    servicer.AppendEnteries,
-                    request_deserializer=raft__pb2.RequestMessage.FromString,
-                    response_serializer=raft__pb2.Empty.SerializeToString,
+            'AppendEntries': grpc.unary_unary_rpc_method_handler(
+                    servicer.AppendEntries,
+                    request_deserializer=raft__pb2.ApepndEntriesMessage.FromString,
+                    response_serializer=raft__pb2.AppendEntriesResponse.SerializeToString,
             ),
             'GetLeader': grpc.unary_unary_rpc_method_handler(
                     servicer.GetLeader,
-                    request_deserializer=raft__pb2.Empty.FromString,
-                    response_serializer=raft__pb2.CurrentLeader.SerializeToString,
+                    request_deserializer=raft__pb2.GetLeaderMessage.FromString,
+                    response_serializer=raft__pb2.GetLeaderResponse.SerializeToString,
             ),
             'Suspend': grpc.unary_unary_rpc_method_handler(
                     servicer.Suspend,
-                    request_deserializer=raft__pb2.Period.FromString,
-                    response_serializer=raft__pb2.Empty.SerializeToString,
+                    request_deserializer=raft__pb2.SuspendMessage.FromString,
+                    response_serializer=raft__pb2.SuspendResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -108,13 +108,13 @@ class RaftService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/RaftService/RequestVote',
-            raft__pb2.RequestMessage.SerializeToString,
-            raft__pb2.RequestResponse.FromString,
+            raft__pb2.RequestVoteMessage.SerializeToString,
+            raft__pb2.RequestVoteResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def AppendEnteries(request,
+    def AppendEntries(request,
             target,
             options=(),
             channel_credentials=None,
@@ -124,9 +124,9 @@ class RaftService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/RaftService/AppendEnteries',
-            raft__pb2.RequestMessage.SerializeToString,
-            raft__pb2.Empty.FromString,
+        return grpc.experimental.unary_unary(request, target, '/RaftService/AppendEntries',
+            raft__pb2.ApepndEntriesMessage.SerializeToString,
+            raft__pb2.AppendEntriesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -142,8 +142,8 @@ class RaftService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/RaftService/GetLeader',
-            raft__pb2.Empty.SerializeToString,
-            raft__pb2.CurrentLeader.FromString,
+            raft__pb2.GetLeaderMessage.SerializeToString,
+            raft__pb2.GetLeaderResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -159,7 +159,7 @@ class RaftService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/RaftService/Suspend',
-            raft__pb2.Period.SerializeToString,
-            raft__pb2.Empty.FromString,
+            raft__pb2.SuspendMessage.SerializeToString,
+            raft__pb2.SuspendResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
