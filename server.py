@@ -13,7 +13,7 @@ from concurrent import futures
 
 CONFIG_PATH = "config.conf"  # overwrite this with your own config file path
 SERVERS = {}
-TERM, VOTED, STATE = 0, False, "follower"
+TERM, VOTED, STATE = 0, False, "Follower"
 LEADER_ID = None
 IN_ELECTIONS = False  # will be true if it was suspended
 START_SUSPEND = None  # time suspend started
@@ -33,7 +33,7 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
             result = True
             VOTED = True
             VOTED_NODE = candidate_id
-            print(f"I'm a follower. Term: {TERM}.\nVoted for {candidate_id}.")
+            print(f"Voted for {candidate_id}.")
         LATEST_TIME = time.time_ns()
         reply = {"term": TERM, "result": result}
         return pb2.RequestVoteResponse(**reply)
@@ -58,12 +58,12 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
         global IN_ELECTIONS, VOTED, VOTED_NODE, LEADER_ID
 
         if IN_ELECTIONS and not VOTED:
-            return pb2.GetLeaderResponse({"id": None, "address": None})
+            return pb2.GetLeaderResponse(**{"id": None, "address": None})
 
         if IN_ELECTIONS:
             return pb2.GetLeaderResponse(VOTED_NODE)
 
-        return pb2.GetLeaderResponse({"id": LEADER_ID, "address": SERVERS[LEADER_ID]})
+        return pb2.GetLeaderResponse(**{"id": LEADER_ID, "address": SERVERS[LEADER_ID]})
 
     def Suspend(self, request, context):
         SUSPEND_PERIOD = int(request.period)
@@ -75,15 +75,16 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
 def read_config(path):
     global SERVERS
     with open(path) as configFile:
-        lines = configFile.readline()
+        lines = configFile.readlines()
         for line in lines:
             parts = line.split()
             SERVERS[parts[0]] = f"{parts[1]}:{parts[2]}"
 
 def get_messages():
     global IN_ELECTIONS, TIME_LIMIT, LATEST_TIME
-    channel = grpc.insecure_channel(SERVERS[LEADER_ID])
-    stub = pb2_grpc.RaftServiceStub(channel)
+    if(LEADER_ID is not None):
+        channel = grpc.insecure_channel(SERVERS[LEADER_ID])
+        stub = pb2_grpc.RaftServiceStub(channel)
     IN_ELECTIONS = False
     while True:
         if (time.time_ns() - LATEST_TIME) >= TIME_LIMIT:
@@ -101,6 +102,7 @@ def run_candidate():
     global TERM, STATE, LEADER_ID, LATEST_TIME, TIME_LIMIT
     LATEST_TIME = time.time_ns()
     # requesting votes
+    TERM += 1
     votes = 1  # voted for itself
     print(f"I'm a candidate. Term: {TERM}.\nVoted for node {SERVER_ID}")
     for key in SERVERS:
@@ -130,9 +132,10 @@ def run_candidate():
             break
 
 def send_heartbeats():
+    global STATE, TERM
+
     if STATE != "Leader":
         return
-    global STATE, TERM
     for key in SERVERS:
         if SERVER_ID is key:
             continue
@@ -153,13 +156,13 @@ def run_leader():
 def run_server():
 
     global TERM, STATE, SERVERS
-    server = grpc.Server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pb2_grpc.add_RaftServiceServicer_to_server(RaftHandler, server)
     server.add_insecure_port(SERVERS[SERVER_ID])
     server.start()
-
+    print(f"I'm a follower. Term: {TERM}")
     try:
-        server.wait_for_termination()
+        #server.wait_for_termination()
         while True:
             if STATE == "Follower":
                     run_follower()
