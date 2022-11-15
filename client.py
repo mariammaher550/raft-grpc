@@ -1,23 +1,26 @@
 import sys
 import grpc
 import raft_pb2_grpc as pb2_grpc
-address = ''
+import raft_pb2 as pb2
+address = ""
 if __name__ == '__main__':
-    global address
     while(True):
-        command = sys.argv[1]
+        line = input()
+        command = line.split()[0]
         if command == "connect":
-            address = sys.argv[2]
+            address = (f"{line.split()[1]}:{line.split()[2]}")
         elif command == "getleader":
             channel = grpc.insecure_channel(address)
             stub = pb2_grpc.RaftServiceStub(channel)
-            response = stub.GetLeader(**{})
-            print(f"Leader id: {response.leaderId}. Leader address: {response.leaderAddress}.")
+            request = pb2.GetLeaderMessage(**{})
+            response = stub.GetLeader(request)
+            print(f"{response.leaderId} {response.leaderAddress}")
         elif command == "suspend":
-            period = sys.argv[2]
+            period = int(line.split()[1])
             channel = grpc.insecure_channel(address)
             stub = pb2_grpc.RaftServiceStub(channel)
-            response = stub.Suspend(**{"period": period})
+            request = pb2.SuspendMessage(**{"period": period})
+            response = stub.Suspend(request)
         elif command == "quit":
             print("The client ends")
             exit(0)
