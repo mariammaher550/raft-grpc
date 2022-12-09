@@ -91,15 +91,6 @@ def read_config(path):
             SERVERS[int(parts[0])] = (f"{str(parts[1])}:{str(parts[2])}")
 
 
-# Utility function used by running follower behaviour to ensure that leader sends us a message within the timelimit.
-# def get_messages():
-#     global IN_ELECTIONS, TIME_LIMIT
-#     if (LEADER_ID is not None):
-#         channel = grpc.insecure_channel(SERVERS[LEADER_ID])
-#         stub = pb2_grpc.RaftServiceStub(channel)
-#     IN_ELECTIONS = False
-
-
 # Runs the behaviour of changing from a follower.
 # declares leader dead, and becomes a candidate.
 def leader_died():
@@ -114,7 +105,7 @@ def leader_died():
 def get_vote(server):
     global TERM, STATE, TIME_LIMIT, VOTES
     try:
-        print("I'm trying to get votes from server x")
+        #print("I'm trying to get votes from server x")
         channel = grpc.insecure_channel(server)
         stub = pb2_grpc.RaftServiceStub(channel)
         request = pb2.RequestVoteMessage(**{"term": TERM, "candidateId": SERVER_ID})
@@ -128,7 +119,6 @@ def get_vote(server):
             VOTES += 1
         return response.result
     except grpc.RpcError:
-        print("Getting votes from server X failed")
         pass
 
 
@@ -166,13 +156,10 @@ def run_candidate():
         if SERVER_ID is key:
             continue
         CANDIDATE_THREADS.append(Thread(target=get_vote, kwargs={'server':value}))
-    print("I made candidate threads")
     # Check if you won the election and can become a leader.
     for thread in CANDIDATE_THREADS:
         thread.start()
-    print("I started candidate threads")
     reset_timer(process_votes, TIME_LIMIT)
-    print("Candidate stuff finished")
 
 
 # Utility function used by the leader to send a heartbeat to all alive servers.
@@ -189,7 +176,7 @@ def send_heartbeat(server):
             STATE = "Follower"
             TERM = response.term
     except grpc.RpcError:
-        print("Sending heartbeats to server X failed")
+        pass
 
 
 def send_heartbeats():
@@ -215,7 +202,6 @@ def reset_timer(func, time_limit):
     LATEST_TIMER.cancel()
     LATEST_TIMER = threading.Timer(time_limit, func)
     LATEST_TIMER.start()
-    # print("Timer is reset")
 
 
 # Initializes the server and runs a loop to call the corresponding responsible function of its current state:
@@ -225,7 +211,6 @@ def run_server():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pb2_grpc.add_RaftServiceServicer_to_server(RaftHandler(), server)
     server.add_insecure_port(SERVERS[SERVER_ID])
-    print(TIME_LIMIT)
     # print follower start
     print(f"I'm a follower. Term: {TERM}")
     LATEST_TIMER = threading.Timer(TIME_LIMIT, leader_died)
@@ -236,9 +221,6 @@ def run_server():
             server.wait_for_termination()
     except KeyboardInterrupt:
         print(f"Server {SERVER_ID} is shutting down")
-
-def printthread(tr):
-    print(tr)
 
 
 if __name__ == '__main__':
