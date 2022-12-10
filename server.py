@@ -7,27 +7,46 @@ from threading import Thread
 import random
 from concurrent import futures
 
+# Config file has servers addresses that'll be stored in servers.
 CONFIG_PATH = "config.conf"  # overwrite this with your config file path
 SERVERS = {}
+
+# Server identifying variables.
 TERM, VOTED, STATE, VOTES = 0, False, "Follower", 0
 LEADER_ID = None
 IN_ELECTIONS = False
-# Time limit in nano seconds.
-TIME_LIMIT = (random.randrange(150, 301) / 1000)
 SERVER_ID = int(sys.argv[1])
 VOTED_NODE = -1
-# Latest time is the timer. Some processes may restart this timer.
+
+# Time limit in seconds for timouts, and timer to set the time limit for certain functionalities.
+TIME_LIMIT = (random.randrange(150, 301) / 1000)
 LATEST_TIMER = -1
+
+# Threads used to request votes from servers as a candidate, and to append entries as a leader.
 CANDIDATE_THREADS = []
 LEADER_THREADS = []
 
+# Commit Index is index of last log entry on server
+# Last applied is index of last applied log entry on server
+commitIndex, lastApplied, lastLogTerm = 0, 0, 0
+# For applied commits.
+ENTRIES = {}
+# For non-applied commits.
+LOGS = {}
+
+# NextIndex: list of indices of next log entry to send to server
+# MatchIndex: list of indices of latest log entry known to be on every server
+nextIndex, matchIndex = [], []
 
 # Handler for RPC functions.
 class RaftHandler(pb2_grpc.RaftServiceServicer):
     # This function is called by the Candidate during the elections to collect votes.
     def RequestVote(self, request, context):
         global TERM, VOTED, STATE, VOTED_NODE, IN_ELECTIONS, LATEST_TIMER
+        global commitIndex, lastLogTerm
         candidate_term, candidate_id = request.term, request.candidateId
+        candidateLastLogIndex, candidateLastLogTerm = request.lastLogIndex, request.lastLogTerm
+        #TODO: modify voting to include logging indices
         result = False
         IN_ELECTIONS = True
         if TERM < candidate_term:
@@ -45,6 +64,9 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
     def AppendEntries(self, request, context):
         global TERM, STATE, LEADER_ID, VOTED, VOTED_NODE, LATEST_TIMER
         leader_term, leader_id = request.term, request.leaderId
+        prevLogIndex, prevLogTerm = request.prevLogIndex, request.prevLogTerm
+        entries, leaderCommit = request.entries, request.leaderCommit
+        #TODO: store entries somewhere and check that operation is successful
         result = False
         if leader_term >= TERM:
             LEADER_ID = leader_id
@@ -54,7 +76,6 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
                 VOTED_NODE = -1
                 TERM = leader_term
         reset_timer(leader_died, TIME_LIMIT)
-        # LATEST_TIME = time.time_ns()
         reply = {"term": TERM, "result": result}
         return pb2.AppendEntriesResponse(**reply)
 
@@ -80,7 +101,40 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
         time.sleep(SUSPEND_PERIOD)
         return pb2.SuspendResponse(**{})
 
+    def SetVal(self, request, context):
+        key, val = request.key, request.val
+        global STATE, SERVERS, LEADER_ID
+        if STATE == "Follower":
+            try:
+                channel = grpc.insecure_channel(SERVERS[LEADER_ID])
+                stub = pb2_grpc.RaftServiceStub(channel)
+                request = pb2.SetValMessage(**{"key": key, "val": val})
+                response = stub.SetVal(request)
+                return response
+            except grpc.RpcError:
+                return pb2.SetValResponse(**{"success": False})
+        elif STATE == "Candidate":
+            return pb2.SetValResponse(**{"success": False})
+        else:
+            if replicate_log(key, val):
+                apply_log()
+                return pb2.SetValResponse(**{"success": True})
+            return pb2.SetValResponse(**{"success": False})
 
+    def GetVal(self, request, context):
+        key = request.key
+        global ENTRIES
+        if key in ENTRIES:
+            val = ENTRIES[key]
+            return pb2.GetValResponse(**{"success": True,"value": val})
+        return pb2.GetValResponse(**{"success": False})
+
+def replicate_log(key, value):
+    #TODO: implement
+    pass
+def apply_log():
+    #TODO: implement
+    pass
 # Read config file to make the list of servers IDs and addresses.
 def read_config(path):
     global SERVERS
@@ -195,8 +249,11 @@ def run_leader():
             continue
         LEADER_THREADS.append(Thread(target=send_heartbeat, kwargs={'server':SERVERS[key]}))
     reset_timer(send_heartbeats, 0.05)
-
-
+def run_log():
+    global commitIndex, lastApplied
+    if commitIndex > lastApplied:
+        lastApplied += 1
+        # TODO: log[lastApplied]
 def reset_timer(func, time_limit):
     global LATEST_TIMER
     LATEST_TIMER.cancel()
