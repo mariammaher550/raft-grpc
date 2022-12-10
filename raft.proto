@@ -1,3 +1,4 @@
+// key and values -> strings
 syntax = "proto3";
 
 service RaftService{
@@ -9,24 +10,39 @@ service RaftService{
   // Functions called by the client.
   rpc GetLeader(GetLeaderMessage) returns (GetLeaderResponse);
   rpc Suspend(SuspendMessage) returns (SuspendResponse);
+  rpc GetVal(GetValMessage) returns (GetValResponse);
+  rpc SetVal(SetValMessage) returns (SetValResponse);
 }
 
-// Candidate server sends its term and id to request a vote from another server.
+// Candidate server sends its details to request a vote from another server.
 message RequestVoteMessage {
   int32 term = 1;
   int32  candidateId = 2;
+  int32 lastLogIndex = 3;
+  int32 lastLogTerm = 4;
 }
 // Server responds to candidate with its term and result: True if it votes for it, false if not.
 message RequestVoteResponse {
   int32 term = 1;
   bool result = 2;
 }
-// Leader server sends its term and id to append entries/ send a heartbeat empty message.
+// Leader server sends its details to append entries/send a heartbeat empty message.
 message AppendEntriesMessage {
   int32 term = 1;
   int32  leaderId = 2;
+  int32 prevLogIndex = 3;
+  int32 prevLogTerm = 4;
+  repeated Entry entries = 5;
+  int32 leaderCommit = 6;
 }
-// Follower server receives the request from leader with Success or Failure if it's in a higher term now.
+// Entry to log.
+message Entry{
+  string commandType = 1;
+  string key = 2;
+  string value = 3;
+}
+
+// Follower server receives the request from leader with Success or Failure in appending log.
 message AppendEntriesResponse {
   int32 term = 1;
   bool result = 2;
@@ -47,3 +63,24 @@ message SuspendMessage{
 }
 // Server sleeps for 'period' seconds and returns nothing.
 message SuspendResponse {}
+
+
+// Client interface with server to get value of key.
+message GetValMessage{
+  string key = 1;
+}
+// Success if key exists, and would be coupled with value, else, not.
+message GetValResponse {
+  bool success = 1;
+  optional string value = 2;
+}
+
+// Client interface with leader to add {key value}.
+message SetValMessage{
+  string key = 1;
+  string value = 2;
+}
+// Success if value is set in all servers, else, not.
+message SetValResponse{
+  bool success = 1;
+}
