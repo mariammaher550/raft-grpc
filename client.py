@@ -7,20 +7,39 @@ address = ""
 
 # Takes commands from input and processes them until it gets command 'quit'.
 if __name__ == '__main__':
+
     while(True):
         line = input()
         command = line.split()[0]
 
         if command == "connect":
             address = (f"{line.split()[1]}:{line.split()[2]}")
-
+            
         elif command == "getleader":
             channel = grpc.insecure_channel(address)
             stub = pb2_grpc.RaftServiceStub(channel)
             request = pb2.GetLeaderMessage(**{})
             response = stub.GetLeader(request)
             print(f"{response.leaderId} {response.leaderAddress}")
-
+        elif command == "setVal":
+            key = line.split()[1]
+            val = line.split()[2]
+            channel = grpc.insecure_channel(address)
+            stub = pb2_grpc.RaftServiceStub(channel)
+            request = pb2.SetValMessage(**{"key": key, "value": val})
+            response = stub.SetVal(request)
+            if (not response.success):
+                print("Setting was unsuccessful")
+        elif command == "getVal":
+            key = line.split()[1]
+            channel = grpc.insecure_channel(address)
+            stub = pb2_grpc.RaftServiceStub(channel)
+            request = pb2.GetValMessage(**{"key": key})
+            response = stub.SetVal(request)
+            if (not response.success):
+                print("None")
+            else:
+                print(response.value)
         elif command == "suspend":
             period = int(line.split()[1])
             channel = grpc.insecure_channel(address)
