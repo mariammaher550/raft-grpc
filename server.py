@@ -69,7 +69,7 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
                 VOTED = True
                 VOTED_NODE = candidate_id
                 print(f"Voted for node {candidate_id}.")
-                reset_timer(leader_died, TIME_LIMIT)
+            reset_timer(leader_died, TIME_LIMIT)
         else:
             if STATE == "Follower":
                 reset_timer(leader_died, TIME_LIMIT)
@@ -81,6 +81,7 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
     def AppendEntries(self, request, context):
         global TERM, STATE, LEADER_ID, VOTED, VOTED_NODE
         global LATEST_TIMER, commitIndex, ENTRIES, lastApplied
+
         leader_term, leader_id = request.term, request.leaderId
         prevLogIndex, prevLogTerm = request.prevLogIndex, request.prevLogTerm
         entries, leaderCommit = request.entries, request.leaderCommit
@@ -98,7 +99,7 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
             if prevLogIndex <= len(LOGS):
                 result = True
                 if len(entries) > 0:
-                    LOGS.append({"TERM": leader_term, "ENTRY": entries})
+                    LOGS.append({"TERM": leader_term, "ENTRY": entries[0]})
 
                 if leaderCommit > commitIndex:
                     commitIndex = min(leaderCommit, len(LOGS))
@@ -139,13 +140,13 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
 
     # This function is called from client to add key, value/append entry to servers.
     def SetVal(self, request, context):
-        key, val = request.key, request.val
-        global STATE, SERVERS, LEADER_ID, LOGS, TERM, nextIndex, matchIndex
+        key, val = request.key, request.value
+        global STATE, SERVERS, LEADER_ID, LOGS, TERM
         if STATE == "Follower":
             try:
                 channel = grpc.insecure_channel(SERVERS[LEADER_ID])
                 stub = pb2_grpc.RaftServiceStub(channel)
-                request = pb2.SetValMessage(**{"key": key, "val": val})
+                request = pb2.SetValMessage(**{"key": key, "value": val})
                 response = stub.SetVal(request)
                 return response
             except grpc.RpcError:
@@ -153,11 +154,9 @@ class RaftHandler(pb2_grpc.RaftServiceServicer):
         elif STATE == "Candidate":
             return pb2.SetValResponse(**{"success": False})
         else:
-            nextIndex.append(len(LOGS))
-            LOGS.append({"TERM": TERM, "ENTRY": request})
+            LOGS.append({"TERM": TERM, "ENTRY": {"commandType": "set", "key": request.key, "value": request.value}})
             return pb2.SetValResponse(**{"success": True})
-            #return pb2.SetValResponse(**{"success": False})
-
+            
     # This function is called from client to get value associated with key.
     def GetVal(self, request, context):
         key = request.key
@@ -205,7 +204,7 @@ def get_vote(server):
         if response.term > TERM:
             TERM = response.term
             STATE = "Follower"
-            TIME_LIMIT = (random.randrange(100, 301) / 10000)
+            TIME_LIMIT = (random.randrange(150, 301) / 1000)
             reset_timer(leader_died, TIME_LIMIT)
         if response.result:
             VOTES += 1
@@ -214,7 +213,7 @@ def get_vote(server):
         pass
 
 def process_votes():
-    global STATE, LEADER_ID, CANDIDATE_THREADS, TIME_LIMIT
+    global STATE, LEADER_ID, CANDIDATE_THREADS, TIME_LIMIT, nextIndex, matchIndex
     for thread in CANDIDATE_THREADS:
         thread.join(0)
     print("Votes received")
@@ -222,24 +221,26 @@ def process_votes():
         print(f"I am a leader. Term: {TERM}")
         STATE = "Leader"
         LEADER_ID = SERVER_ID
-
         # reset_timer(leader_died, TIME_LIMIT)
+        nextIndex = [len(LOGS) for i in range(len(SERVERS))]
+        matchIndex = [0 for i in range(len(SERVERS))]
         run_leader()
     else:
         STATE = "Follower"
-        TIME_LIMIT = (random.randrange(100, 301) / 10000)
-        reset_timer(leader_died, TIME_LIMIT)
+        TIME_LIMIT = (random.randrange(150, 301) / 1000)
+        run_follower()
 
 # Runs the behaviour of a candidate that reaches out to alive servers and asks them to vote to itself.
 # If it gets the majority of votes, it becomes a leader, else, it's downgraded to a follower and runs follower behaviour.
 def run_candidate():
     global TERM, STATE, LEADER_ID, LATEST_TIMER, TIME_LIMIT, IN_ELECTIONS, VOTED_NODE
-    global SERVER_ID, VOTES, CANDIDATE_THREADS
+    global SERVER_ID, VOTES, CANDIDATE_THREADS, VOTED
     TERM += 1
     IN_ELECTIONS = True
     VOTED_NODE = SERVER_ID
     CANDIDATE_THREADS = []
     VOTES = 1
+    VOTED = True
     print(f"I'm a candidate. Term: {TERM}.\nVoted for node {SERVER_ID}")
     # Requesting votes.
     for key, value in SERVERS.items():
@@ -252,12 +253,16 @@ def run_candidate():
     reset_timer(process_votes, TIME_LIMIT)
 
 
-def replicate_log(server):
+def replicate_log(key, server):
     global LOGS, STATE, matchIndex, matchTerm, nextIndex, n_logs_replicated
-    log = LOGS[nextIndex]
-    prevLogIndex = matchIndex[(len(matchIndex) -1)]
-    prevLogTerm = LOGS[prevLogIndex]["TERM"]
-    leaderCommit = nextIndex[0]
+    leaderCommit = commitIndex
+    prevLogIndex = matchIndex[key]
+    log=[]
+    prevLogTerm = TERM
+    if nextIndex[key] < len(LOGS):
+        # {"commandType": "set", "key": request.key, "value": request.value}
+        log = [{"commandType": "set", "key": LOGS[nextIndex[key]-1]["ENTRY"]["key"], "value": LOGS[nextIndex[key]-1]["ENTRY"]["value"]}]
+        prevLogTerm = LOGS[prevLogIndex]["TERM"]
     try:
         channel = grpc.insecure_channel(server)
         stub = pb2_grpc.RaftServiceStub(channel)
@@ -270,68 +275,36 @@ def replicate_log(server):
             reset_timer(leader_died, TIME_LIMIT)
             run_follower()
         if response.result:
-            n_logs_replicated += 1
+            if log!= []:
+                matchIndex[key] = nextIndex[key]
+                nextIndex[key] += 1
+                n_logs_replicated += 1
+        else:
+            nextIndex[key] -= 1 
+            matchIndex[key] = min(matchIndex[key], nextIndex[key]-1)
     except grpc.RpcError:
         pass
 
-# Utility function used by the leader to send a heartbeat to all alive servers.
-def send_heartbeat(server):
-    global LOGS, STATE, matchIndex, nextIndex, n_logs_replicated
-    log = {}
-    prevLogIndex = matchIndex[(len(matchIndex) - 1)]
-    prevLogTerm = LOGS[prevLogIndex]["TERM"]
-    leaderCommit = matchIndex[(len(matchIndex) - 1)]
-    try:
-        channel = grpc.insecure_channel(server)
-        stub = pb2_grpc.RaftServiceStub(channel)
-        request = pb2.AppendEntriesMessage(**{"term": TERM, "leaderId": SERVER_ID,
-                                              "prevLogIndex": prevLogIndex, "prevLogTerm": prevLogTerm,
-                                              "entries": log, "leaderCommit": leaderCommit})
-        response = stub.AppendEntries(request)
-        if (response.term > TERM):
-            STATE = "Follower"
-            reset_timer(leader_died, TIME_LIMIT)
-            run_follower()
-        if response.result:
-            n_logs_replicated += 1
-    except grpc.RpcError:
-        pass
-
-# Utility function used to send heartbeats or replicate logs to every server.
-def send_heartbeats():
-    global LEADER_THREADS
-    for thread in LEADER_THREADS:
-        thread.start()
-    reset_timer(verify_replicated_logs, TIME_LIMIT)
 
 # Runs the behaviour of a leader that sends a heartbeat message after 50 milliseconds.
 def run_leader():
-    global SERVER_ID, STATE, LEADER_THREADS, n_logs_replicated, nextIndex
+    global SERVER_ID, STATE, LEADER_THREADS, n_logs_replicated, nextIndex, lastApplied, commitIndex
     # Send messages after 50 milliseconds.
     LEADER_THREADS = []
     n_logs_replicated = 1
-    if len(nextIndex) > 0:
-        for key in SERVERS:
-            if SERVER_ID is key:
-                continue
-            LEADER_THREADS.append(Thread(target=replicate_log, kwargs={'server':SERVERS[key]}))
-    else:
-        for key in SERVERS:
-            if SERVER_ID is key:
-                continue
-            LEADER_THREADS.append(Thread(target=send_heartbeat, kwargs={'server':SERVERS[key]}))
-    reset_timer(send_heartbeats, 0.05)
-
-def verify_replicated_logs():
-
-    global LEADER_THREADS, matchIndex, nextIndex
+    for key in SERVERS:
+        if SERVER_ID is key:
+            continue
+        LEADER_THREADS.append(Thread(target=replicate_log, kwargs={'key': key, 'server':SERVERS[key]}))
     for thread in LEADER_THREADS:
-        thread.join(0)
-    if (n_logs_replicated == len(SERVERS)):
-        matchIndex.append(nextIndex[0])
-        nextIndex.pop(0)
-    else:
-        run_leader()
+        thread.start()
+    if len(LOGS) > len(ENTRIES):
+        key, value = LOGS[lastApplied]["ENTRY"]["key"], LOGS[lastApplied]["ENTRY"]["value"]
+        ENTRIES[key] = value
+        lastApplied += 1
+        commitIndex += 1
+    reset_timer(run_server_role, 0.05)
+
 def reset_timer(func, time_limit):
     global LATEST_TIMER
     LATEST_TIMER.cancel()
@@ -367,4 +340,5 @@ def run_server():
 
 if __name__ == '__main__':
     read_config(CONFIG_PATH)
+    print(f"{SERVERS[SERVER_ID]}")
     run_server()
