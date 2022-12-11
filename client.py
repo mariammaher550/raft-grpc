@@ -14,28 +14,29 @@ if __name__ == '__main__':
 
         if command == "connect":
             address = (f"{line.split()[1]}:{line.split()[2]}")
-            
+
         elif command == "getleader":
             channel = grpc.insecure_channel(address)
             stub = pb2_grpc.RaftServiceStub(channel)
             request = pb2.GetLeaderMessage(**{})
             response = stub.GetLeader(request)
             print(f"{response.leaderId} {response.leaderAddress}")
-        elif command == "setVal":
+        elif command == "setval":
             key = line.split()[1]
             val = line.split()[2]
+            print(f"{key}, {val}")
             channel = grpc.insecure_channel(address)
             stub = pb2_grpc.RaftServiceStub(channel)
-            request = pb2.SetValMessage(**{"key": key, "value": val})
+            request = pb2.SetValMessage(**{"key": str(key), "value": str(val)})
             response = stub.SetVal(request)
             if (not response.success):
                 print("Setting was unsuccessful")
-        elif command == "getVal":
+        elif command == "getval":
             key = line.split()[1]
             channel = grpc.insecure_channel(address)
             stub = pb2_grpc.RaftServiceStub(channel)
             request = pb2.GetValMessage(**{"key": key})
-            response = stub.SetVal(request)
+            response = stub.GetVal(request)
             if (not response.success):
                 print("None")
             else:
